@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>canvas柱状图案例</title>
+    <style>
+        * {margin: 0;padding: 0;}
+        .canvas-wrap {
+            position: relative;
+            margin-left: 450px;
+            margin-top: 150px;
+            width: 600px;
+            height: 400px;
+        }
+        #canvas {
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvasWrap" class="canvas-wrap">
+        <canvas id="canvas" width="600" height="400"></canvas>
+        <div id="tooltip"></div>
+    </div>
+    <script>
+        class BarChart {
+            constructor(id) {
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.cPadding = 80;
+                this.yAxisH = this.canvas.height - this.cPadding*2;
+                this.xAxisW = this.canvas.width - this.cPadding*2;
+                this.originX = this.cPadding;
+                this.originY = this.yAxisH + this.cPadding;
+                this.yAxisNum = 10;
+                this.xAxisNum = 0;
+                this.data = [];
+                this.count = 0;
+                this.animateId = null;
+                this.bars = [];
+            }
+            init() {
+                this.ctx.font = '16px Arial';
+                this.drawAxis();
+                this.bindEvent();
+            }
+            setData(arr) {
+                this.data = arr;
+                this.xAxisNum = arr.length;
+                this.init()
+            }
+            drawLine(x,y,x2,y2) {
+                const {ctx} = this;
+                ctx.beginPath();
+                ctx.lineWidth = 1;
+                ctx.moveTo(x,y);
+                ctx.lineTo(x2,y2);
+                ctx.stroke();
+                ctx.closePath();
+            }
+            drawAxis() {
+                const {ctx} = this;
+                ctx.translate(0.5,0.5);//解决线模糊的问题
+                ctx.strokeStyle = '#333';
+                this.drawLine(this.originX,this.originY,this.originX,this.cPadding);
+                this.drawLine(this.originX,this.originY,this.canvas.width - this.cPadding,this.originY);
+                this.drawMarker();
+                this.drawBar();
+                ctx.translate(-0.5,-0.5);
+            }
+            drawMarker() {
+                let oneYVal = this.yAxisH / this.yAxisNum;
+                this.ctx.textAlign = 'right';
+                for(let i = 0;i <= this.yAxisNum;i++) {
+                    this.ctx.fillStyle = '#999';
+                    this.ctx.fillText(i*100,this.originX - 10,this.originY - i*oneYVal + 5);
+                    if(i > 0) {
+                        this.ctx.strokeStyle = '#333';
+                        this.drawLine(this.originX,this.originY - i * oneYVal,this.originX - 5,this.originY - i * oneYVal);
+                        this.strokeStyle = '#eee';
+                        this.drawLine(this.originX,this.originY - i * oneYVal,this.canvas.width - this.cPadding,this.originY - i * oneYVal);
+                    }
+                }
+                this.ctx.save();
+                this.ctx.font = '20px Arial';
+                this.ctx.rotate(-Math.PI / 2);
+                this.ctx.fillText('产量',-this.canvas.height / 2 + 20,30);
+                this.ctx.restore();
+
+                //画x轴刻度
+                let oneXVal = this.xAxisW / this.xAxisNum;
+                this.ctx.strokeStyle = '#333';
+                this.ctx.textAlign = 'center';
+                for(let i = 0;i < this.xAxisNum;i++) {
+                    this.ctx.fillText(this.data[i][0],this.originX + (i+1)*oneXVal,this.originY + 20);
+                    this.drawLine(this.originX + (i+1) * oneXVal,this.originY,this.originX + (i+1) * oneXVal,this.originY + 5);
+                }
+                this.ctx.save();
+                this.ctx.font = '20px Arial';
+                this.ctx.fillText('年份',this.canvas.width / 2,this.originY + 50);
+                this.ctx.restore();
+            }
+            drawRect(x,y,w,h) {
+                const {ctx} = this;
+                ctx.beginPath();
+                ctx.rect(x,this.cPadding,w,this.yAxisH);
+                this.ctx.save();
+                ctx.fillStyle = 'rgba(180,180,180,.2)';
+                ctx.strokeStyle = '#eee';
+                ctx.fill();
+                this.ctx.restore();
+
+                ctx.beginPath();
+                ctx.rect(x,y,w,h);
+                let color = ctx.createLinearGradient(0,0,0,300);
+                color.addColorStop(0,'#83bff6');
+                color.addColorStop(0.7,'#83bff6');
+                color.addColorStop(1,'#2378f7');
+                this.ctx.save();
+                ctx.fillStyle = color;
+                ctx.strokeStyle = color;
+                ctx.fill();
+                this.ctx.restore();
+            }
+            drawBar() {
+                let oneXVal = this.xAxisW / this.xAxisNum;
+                let barW = oneXVal / 2;
+                this.bars = [];
+                for(let i = 0; i < this.xAxisNum;i++) {
+                    let barH = this.data[i][1]*this.yAxisH/1000*(this.count / 100);
+                    let y = this.originY - barH;
+                    let x = this.originX + i*oneXVal + barW/2;
+                    this.bars.push({
+                        x: [x,x+barW],
+                        y: [this.cPadding,this.yAxisH + this.cPadding]
+                    })
+                    this.drawRect(x,y,barW,barH);
+                    this.ctx.save();
+                    if(i==2) {
+                        this.ctx.fillStyle = 'red'
+                    } else {
+                        this.ctx.fillStyle = 'skyblue'
+                    }
+                    this.ctx.fillText(this.data[i][1],x + barW/2,y-10);
+                    this.ctx.restore();
+                }
+                this.animateId = requestAnimationFrame(this.animate.bind(this))
+            }
+            animate() {
+                this.count++;
+                if(this.count <= 100) {
+                    this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+                    this.drawAxis();
+                } else {
+                    this.count = 100;
+                }
+            }
+            bindEvent() {
+                this.canvas.addEventListener('click',() => {
+                    cancelAnimationFrame(this.animateId);
+                    this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+                    this.count = 0;
+                    this.setData(this.data)
+                })
+                this.canvas.addEventListener('mousemove',(e) => {
+                    let el1 = document.getElementById('tooltip');
+                    let el = document.getElementById('canvasWrap');
+                    const x  = e.clientX - el.offsetLeft;
+                    const y = e.clientY - el.offsetTop;
+                    el1.style = 'opacity: 0';
+                    this.canvas.style = 'cursor: default';
+                    this.bars.forEach((item,i) => {
+                        if(x >= item.x[0] && x <= item.x[1] && y >= item.y[0] && y <= item.y[1]) {
+                            el1.innerHTML = '年份：' + this.data[i][0] +'<br>产量：'+this.data[i][1];
+                            el1.style  = `position:absolute;left:${x+10}px;top:${y+10}px;z-index:99999;opacity:1;border: 1px solid #333;padding:5px;background:#fff`;
+                            this.ctx.style = 'cursor:pointer';
+                        }
+                    })
+                })
+            }
+        }
+        let bar = new BarChart('canvas');
+        let data = [[2007,750],[2008,425],[2009,960],[2010,700],[2011,800]];
+        bar.setData(data)
+    </script>
+</body>
+</html>
