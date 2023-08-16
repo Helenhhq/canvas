@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>热力图案例</title>
+	<style type="text/css">
+		h1 {text-align: center;}
+		canvas {
+			display: block;
+			margin: 20px auto 0;
+		}
+		.my-canvas {
+			margin: 50px auto 0;
+			border: 1px solid #333;
+		}
+	</style>
+</head>
+<body>
+		<h1>canvas画热力图案例</h1>
+		<canvas class="my-canvas" id="myCanvas" width="500" height="400"></canvas>
+
+		<script type="text/javascript">		
+		// 热力数据
+		var dataList = [
+			{ x: 71, y: 77, value: 16 },
+			{ x: 138, y: 175, value: 90 },
+			{ x: 373, y: 129, value: 71 },
+			{ x: 343, y: 42, value: 50 },
+			{ x: 163, y: 95, value: 97 },
+			{ x: 290, y: 437, value: 34 },
+			{ x: 377, y: 442, value: 66 },
+			{ x: 171, y: 254, value: 20 },
+			{ x: 6, y: 582, value: 64 },
+			{ x: 387, y: 477, value: 14 },
+			{ x: 300, y: 300, value: 80 },
+			{ x: 100, y: 300, value: 100 }
+		];
+
+		window.onload = function () {
+			let canvas = document.getElementById("myCanvas");
+			let context = canvas.getContext("2d");
+
+			// 根据热力值绘制辐射圆
+			let min = 0;
+			let max = dataList.reduce((max, data) => {
+				return Math.max(max, data.value);
+			}, 0);
+			dataList.forEach(data => drawRadiation(context, {
+				x: data.x,
+				y: data.y,
+				radius: 80,
+				weight: (data.value - min) / (max - min)
+			}));
+
+		  	// 颜色映射,创建调色板
+			let palette = createPalette();
+
+			let { width, height } = canvas;
+			let imageData = context.getImageData(0, 0, width, height);
+			console.log(imageData,"imageData");
+			let data = imageData.data;
+			//映射
+			for (let i = 3; i < data.length; i += 4) {
+				let alpha = data[i];
+				let color = palette.pickColor(alpha);
+				data[i - 3] = color[0];
+				data[i - 2] = color[1];
+				data[i - 1] = color[2];
+			}
+			context.putImageData(imageData, 0, 0);
+		}
+
+		// 绘制辐射圆
+		function drawRadiation(context, opts) {
+			let { x, y, radius, weight } = opts;
+			radius = Math.round(radius * weight);
+
+			// 设置填充色
+			let rGradient = context.createRadialGradient(x, y, 0, x, y, radius);
+			rGradient.addColorStop(0, "rgba(0, 0, 0, 1)");
+			rGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+			context.fillStyle = rGradient;
+
+			// 设置透明度
+			context.globalAlpha = weight;
+
+			// 绘制圆形
+			context.beginPath();
+			context.arc(x, y, radius, 0, 2 * Math.PI);
+			// 填充
+			context.fill();
+		}
+
+		// 创建调色盘
+		function createPalette() {
+			let colorStops = {
+				0: "#0ff",
+				0.2: "#0f0",
+				0.4: "#ff0",
+				1: "#f00"
+			};
+			// let colorStops = {
+			// 	0.25: "rgb(0,0,255)",
+			// 	0.55: "rgb(0,255,0)",
+			// 	0.85: "yellow",
+			// 	1: "rgb(255,0,0)"
+			// };
+			let width = 256, height = 20;
+			// 创建canvas
+			let palatteCanvas = document.createElement("canvas");
+			palatteCanvas.width = width;
+			palatteCanvas.height = height;
+			let ctx = palatteCanvas.getContext("2d");
+
+			// 创建线性渐变色
+			let linearGradient = ctx.createLinearGradient(0, 0, width, 0);
+			for (const key in colorStops) {
+				linearGradient.addColorStop(key, colorStops[key]);
+			}
+			// 绘制渐变色条
+			ctx.fillStyle = linearGradient;
+			ctx.fillRect(0, 0, width, height);
+
+			document.body.appendChild(palatteCanvas);
+			// 读取像素值
+			let imageData = ctx.getImageData(0, 0, width, 1).data;
+
+			return {
+				canvas: palatteCanvas,
+				pickColor: function (position) {
+					return imageData.slice(position * 4, position * 4 + 3)
+				}
+			}
+		}
+		</script>
+</body>
+</html>
